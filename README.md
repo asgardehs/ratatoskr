@@ -1,128 +1,196 @@
-# Embedded Python Interpreter for Go
+# Ratatoskr
 
-This library provides an embedded distribution of Python, which should work out-of-the box on a selected set of
-architectures and operating systems.
+_Embedded Python distribution for Go applications._
 
-This library does not require CGO and solely relies on executing Python inside another process. It does not rely
-on CPython binding to work. There is also no need to have Python pre-installed on the target host.
+![Status](https://img.shields.io/badge/status-active-2A6E3F?style=for-the-badge)
 
-You really only have to depend on this library and invoke it as follows:
+## Attribution
 
-```go
-import (
-	"github.com/kluctl/go-embed-python/python"
-	"os"
-)
+Ratatoskr is a fork of
+[kluctl/go-embed-python](https://github.com/kluctl/go-embed-python), originally
+created by the kluctl team and licensed under Apache-2.0. The upstream project
+is no longer actively maintained. This fork continues the work under the
+Asgard EHS project, preserving the original design while updating the library
+for continued compatibility with new Python releases and supported platforms.
 
-func main() {
-	ep, err := python.NewEmbeddedPython("example")
-	if err != nil {
-		panic(err)
-	}
+All credit for the original design and implementation belongs to the kluctl
+authors. Ratatoskr remains licensed under Apache-2.0, matching the upstream.
 
-	cmd, err := ep.PythonCmd("-c", "print('hello')")
-	if err != nil {
-		panic(err)
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		panic(err)
-	}
-}
-```
+## Overview
 
-## Supported architectures
-The following operating systems and architectures are supported:
-* darwin-amd64
-* darwin-arm64
-* linux-amd64
-* linux-arm64
-* windows-amd64
+Go applications that need Python capabilities — scientific libraries,
+regulatory calculation engines, or ecosystem-specific tooling that only
+exists in Python — face a hard choice: demand that users install Python
+themselves, or use CGO-based bindings that are fragile across platforms.
+Ratatoskr embeds a complete Python distribution inside the Go binary and
+invokes it via subprocess, giving you Python's capabilities without either
+cost. It is a library first — import it, call it, and it handles extraction,
+path management, and the subprocess lifecycle for you — with utilities for
+embedding pip packages alongside the interpreter.
 
-## Releases
-Releases in this library are handled a bit different from what one might be used to. This library does currently not
-follow a versioning schema comparable to sematic versioning. This might however change in the future.
+## When Not to Use Ratatoskr
 
-Right now, every tagged release is compromised of the Python interpreter version, the [python-standalone](https://github.com/astral-sh/python-build-standalone)
-and a build number. For example, the release version `v0.0.0-3.11.6-20241219-2` belongs to Python version 3.11.6, 
-the [20241219](https://github.com/astral-sh/python-build-standalone/releases/tag/20241219) version of python-standalone
-and build number 2. The release version currently always has v0.0.0 as its own version.
+Ratatoskr is a subprocess-based bridge, not an in-process Python runtime. It
+is:
 
-The way versioning is handled might result in popular dependency management tools (e.g. dependabot) to not work as you
-might require it. Please watch out to not accidentally upgrade your Python version!
+- **Not a CGO binding.** Python runs in a separate process. If you need
+  in-process Python (direct memory sharing, zero-overhead calls, embedding
+  Python objects as Go values), Ratatoskr is the wrong tool.
+- **Not for hot-path performance.** Every Python invocation has subprocess
+  startup and IPC overhead. Use Ratatoskr when the work done per call
+  outweighs the call itself, not for tight inner loops.
+- **Not a sandbox.** The embedded Python interpreter runs with the full
+  permissions of the host process. Do not use Ratatoskr to execute
+  untrusted Python code.
 
-## How it works
-This library uses the standalone Python distributions found at https://github.com/astral-sh/python-build-standalone as
-the base.
-
-The `./hack/build-tag.sh` script is used to invoke `python/generate` and `pip/generate`, which then downloads, extracts
-and packages all supported Python distributions. The script then also creates a tag which then can be used as a dependency
-in your project.
-
-The tagged release internally embed all Python sources and binaries via `//go:embed`. The `EmbeddedPython` object
-is then used as a helper utility to access the embedded distribution.
-
-`EmbeddedPython` is created via `NewEmbeddedPython`, which will extract the embedded distribution into a temporary folder.
-Extraction is optimized in a way that it is only executed when needed (by verifying integrity of previously extracted
-distributions).
-
-## Upgrading python
-The Python version and downloaded distributions are controlled via the `.github/workflows/release.yml` workflow. It
-contains a matrix of supported distributions. To upgrade Python, edit this workflow and create a pull request.
-
-## Embedding Python libraries into your applications
-This library provides utilities/helpers to allow embedding of external libraries into your own application.
-
-To do this, create a simple generator application inside your application/library, for example in `internal/my-python-libs/generate/main.go`:
+## Quick Example
 
 ```go
 package main
 
 import (
-	"github.com/kluctl/go-embed-python/pip"
+    "os"
+
+    "github.com/asgardehs/ratatoskr/python"
 )
 
 func main() {
-	err := pip.CreateEmbeddedPipPackagesForKnownPlatforms("requirements.txt", "./data/")
-	if err != nil {
-		panic(err)
-	}
+    ep, err := python.NewEmbeddedPython("example")
+    if err != nil {
+        panic(err)
+    }
+
+    cmd, err := ep.PythonCmd("-c", "print('hello')")
+    if err != nil {
+        panic(err)
+    }
+    cmd.Stdout = os.Stdout
+    cmd.Stderr = os.Stderr
+    if err := cmd.Run(); err != nil {
+        panic(err)
+    }
 }
 ```
 
-Then create add the `//go:generate go run ./generate` statement to a .go file above the generator source, e.g. in `internal/my-python-libs/dummy.go`:
+`NewEmbeddedPython` extracts the embedded distribution to a temporary
+directory on first use and skips the extraction on subsequent runs if the
+previously extracted copy is intact.
+
+## Installation
+
+```bash
+go get github.com/asgardehs/ratatoskr
 ```
-package internal
+
+Requires Go 1.26 or later. No CGO — Ratatoskr uses subprocess IPC rather
+than Python bindings, so cross-compilation is straightforward.
+
+## Building from Source
+
+```bash
+git clone https://github.com/asgardehs/ratatoskr.git
+cd ratatoskr
+go build ./...
+```
+
+## Supported Platforms
+
+| OS      | Architecture   |
+| ------- | -------------- |
+| Linux   | amd64, arm64   |
+| macOS   | amd64, arm64   |
+| Windows | amd64          |
+
+Platform support follows the upstream
+[python-build-standalone](https://github.com/astral-sh/python-build-standalone)
+distributions that Ratatoskr embeds. Adding a platform means adding it to the
+release workflow matrix; it is not a code change.
+
+## How It Works
+
+Ratatoskr uses the standalone Python distributions published by
+[astral-sh/python-build-standalone](https://github.com/astral-sh/python-build-standalone).
+At build time, the release workflow downloads, extracts, and packages the
+supported distributions, which are then embedded into the Go binary using
+`//go:embed`.
+
+At runtime, `NewEmbeddedPython` extracts the embedded distribution into a
+temporary folder the first time it is called. Subsequent calls reuse the
+extracted distribution after verifying its integrity, so the extraction cost
+is paid once per install, not once per invocation. The `EmbeddedPython`
+object then exposes the interpreter as a helper for constructing
+`exec.Cmd`-style Python invocations.
+
+## Embedding Python Libraries
+
+To bundle pip packages alongside the interpreter, create a generator under
+your application (for example, `internal/pylibs/generate/main.go`):
+
+```go
+package main
+
+import "github.com/asgardehs/ratatoskr/pip"
+
+func main() {
+    err := pip.CreateEmbeddedPipPackagesForKnownPlatforms(
+        "requirements.txt",
+        "./data/",
+    )
+    if err != nil {
+        panic(err)
+    }
+}
+```
+
+Add a `go:generate` directive in a sibling file (`internal/pylibs/gen.go`):
+
+```go
+package pylibs
 
 //go:generate go run ./generate
 ```
 
-And the requirements.txt in `internal/my-python-libs/requirements.txt`:
+And a `requirements.txt` alongside it:
+
 ```
 jinja2==3.1.2
 ```
 
-When running `go generate ./...` inside your application/library, you'll get the referenced Python libraries installed
-to `internal/my-python-libs/data`. The embedded data is then available via `data.Data` and can be passed to
-`embed_util.NewEmbeddedFiles()` for extraction.
+Running `go generate ./...` populates `internal/pylibs/data` with the
+platform-specific package archives. Load them at runtime via
+`embed_util.NewEmbeddedFiles()` and attach the extracted path to your
+`EmbeddedPython` instance with `AddPythonPath`. This is the same pattern the
+upstream
+[go-jinja2](https://github.com/kluctl/go-jinja2) project uses.
 
-The path returned by `EmbeddedFiles.GetExtractedPath()` can then be added to the `EmbeddedPython` by calling
-`AddPythonPath` on it.
+## Releases
 
-An example of all this can be found in https://github.com/kluctl/go-jinja2
+Ratatoskr follows [semantic versioning](https://semver.org/) on its Go API.
+The bundled Python version is called out in each release's notes rather than
+encoded in the version string — a given Ratatoskr release advertises "bundles
+Python 3.12.x" in its release description, and upgrading Ratatoskr may
+upgrade Python alongside it. Review release notes before upgrading if your
+application depends on specific Python interpreter behavior.
 
-# Why another go+python solution?
-There are already multiple implementations of go-bindings for Python, which however all rely on CGO and/or dynamic
-linking. I experimented a lot with these and was not able to make it stable enough so that I could use it without fear
-of the process crashing after some time. I even got to the point where I implemented my own dynamic library loader that
-was not depending on CGO, but ultimately gave up when I realized that it would not work on all platforms.
+Upgrading the embedded Python version is a workflow change, not a code
+change. The supported distributions are controlled by the matrix in
+`.github/workflows/release.yml`.
 
-The only solution that was left was to spawn a Python process and use some kind of inter-process communication. For this
-to work reliably, without any dependencies on the host system, it was required to embed a fully working Python
-distribution into my Go binaries. I managed to make this flexible enough to put into a library so that others might
-benefit as well.
+## Project
 
-Initially, this approach/code was part of https://github.com/kluctl/kluctl to allow Jinja2 templates in Go. The Jinja2
-part can now be found in https://github.com/kluctl/go-jinja2.
+- **License:** Apache-2.0 — see [LICENSE](LICENSE)
+- **Code of Conduct:** see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- **Contributing:** see [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Security:** report vulnerabilities to
+  [muninn.developer@protonmail.com](mailto:muninn.developer@protonmail.com)
+
+## Name
+
+> _In Norse mythology, Ratatoskr is the squirrel who runs the length of
+> Yggdrasil, the world tree, carrying messages between the eagle at its
+> crown and the dragon Níðhöggr at its roots. He is the messenger who
+> crosses between realms that would otherwise never meet. Here, Ratatoskr
+> carries calls and replies between the Go process and the Python runtime
+> embedded within it._
+
+_Part of the [Asgard EHS family](https://asgardehs.github.io/)._
