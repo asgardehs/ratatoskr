@@ -15,6 +15,9 @@ on:
         required: true
         default: '20260414'
 
+permissions:
+  contents: read
+
 jobs:
   build-tag:
     runs-on: ubuntu-22.04
