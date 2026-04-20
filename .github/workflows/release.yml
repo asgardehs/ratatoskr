@@ -36,13 +36,12 @@ jobs:
           ./hack/build-tag.sh ${{ inputs.version }} ${{ inputs.python_version }} ${{ inputs.python_standalone_version }}
       - name: git gc
         run: git gc
-      - name: rename .git
-        run: mv .git git-dir
+      - name: archive .git
+        run: tar cf git-archive.tar .git
       - uses: actions/upload-artifact@v4
         with:
           name: workdir
-          path: |
-            git-dir
+          path: git-archive.tar
 
   tests:
     needs: build-tag
@@ -58,9 +57,9 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: workdir
-      - name: rename .git back
+      - name: restore .git
         shell: bash
-        run: mv git-dir .git
+        run: tar xf git-archive.tar
       - name: checkout tag
         shell: bash
         run: |
@@ -84,8 +83,8 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: workdir
-      - name: rename .git back
-        run: mv git-dir .git
+      - name: restore .git
+        run: tar xf git-archive.tar
       - name: update remote url
         run: |
           git remote set-url origin https://token:$GITHUB_TOKEN@github.com/$GITHUB_REPOSITORY
