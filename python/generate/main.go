@@ -84,10 +84,10 @@ func main() {
 
 	jobs := []job{
 		{"linux", "amd64", "unknown-linux-gnu-pgo+lto-full", keepNixPatterns},
-		{"linux", "arm64", "unknown-linux-gnu-lto-full", keepNixPatterns},
+		{"linux", "arm64", "unknown-linux-gnu-pgo+lto-full", keepNixPatterns},
 		{"darwin", "amd64", "apple-darwin-pgo+lto-full", keepNixPatterns},
 		{"darwin", "arm64", "apple-darwin-pgo+lto-full", keepNixPatterns},
-		{"windows", "amd64", "pc-windows-msvc-shared-pgo-full", keepWinPatterns},
+		{"windows", "amd64", "pc-windows-msvc-pgo-full", keepWinPatterns},
 	}
 	for _, j := range jobs {
 		j := j
