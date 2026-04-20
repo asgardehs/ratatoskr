@@ -2,8 +2,11 @@ package python
 
 import (
 	"fmt"
-	"github.com/kluctl/go-embed-python/embed_util"
-	"github.com/kluctl/go-embed-python/python/internal/data"
+	"os"
+	"path/filepath"
+
+	"github.com/asgardehs/ratatoskr/embed_util"
+	"github.com/asgardehs/ratatoskr/python/internal/data"
 )
 
 type EmbeddedPython struct {
@@ -23,6 +26,19 @@ func NewEmbeddedPython(name string) (*EmbeddedPython, error) {
 		e:      e,
 		Python: NewPython(WithPythonHome(e.GetExtractedPath())),
 	}, nil
+}
+
+// NewEmbeddedPythonInCacheDir extracts the embedded Python distribution into
+// the user's OS cache directory (XDG_CACHE_HOME on Linux, ~/Library/Caches on
+// macOS, %LOCALAPPDATA% on Windows) under a subdirectory named after appName.
+// Unlike NewEmbeddedPython, the extracted distribution survives reboots and
+// /tmp cleanup policies, which matters for long-lived desktop apps.
+func NewEmbeddedPythonInCacheDir(appName string) (*EmbeddedPython, error) {
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return nil, fmt.Errorf("ratatoskr: %w", err)
+	}
+	return NewEmbeddedPythonWithTmpDir(filepath.Join(cacheDir, appName, "python"), true)
 }
 
 func NewEmbeddedPythonWithTmpDir(tmpDir string, withHashInDir bool) (*EmbeddedPython, error) {

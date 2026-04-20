@@ -3,17 +3,19 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/gobwas/glob"
-	"github.com/klauspost/compress/zstd"
-	"github.com/kluctl/go-embed-python/embed_util"
-	"github.com/kluctl/go-embed-python/internal"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/gobwas/glob"
+	"github.com/klauspost/compress/zstd"
+	log "github.com/sirupsen/logrus"
+
+	"github.com/asgardehs/ratatoskr/embed_util"
+	"github.com/asgardehs/ratatoskr/internal"
 )
 
 var (
@@ -199,6 +201,10 @@ func download(osName string, arch string, dist string) string {
 	defer r.Body.Close()
 
 	fileData, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Errorf("reading response body failed: %v", err)
+		os.Exit(1)
+	}
 
 	err = os.WriteFile(downloadPath, fileData, 0o640)
 	if err != nil {

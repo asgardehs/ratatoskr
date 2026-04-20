@@ -11,7 +11,7 @@ import (
 
 func ExtractTarStream(r io.Reader, targetPath string) error {
 	tarReader := tar.NewReader(r)
-	for true {
+	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
 			break

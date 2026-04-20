@@ -2,13 +2,14 @@ package pip
 
 import (
 	"fmt"
-	"github.com/kluctl/go-embed-python/embed_util"
-	"github.com/kluctl/go-embed-python/internal"
-	"github.com/kluctl/go-embed-python/python"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/asgardehs/ratatoskr/embed_util"
+	"github.com/asgardehs/ratatoskr/internal"
+	"github.com/asgardehs/ratatoskr/python"
 )
 
 func CreateEmbeddedPipPackagesForKnownPlatforms(requirementsFile string, targetDir string) error {
@@ -40,13 +41,13 @@ func CreateEmbeddedPipPackages(requirementsFile string, goOs string, goArch stri
 	if err != nil {
 		return err
 	}
-	defer ep.Cleanup()
+	defer func() { _ = ep.Cleanup() }()
 
 	pipLib, err := NewPipLib(name)
 	if err != nil {
 		return err
 	}
-	defer pipLib.Cleanup()
+	defer func() { _ = pipLib.Cleanup() }()
 
 	ep.AddPythonPath(pipLib.GetExtractedPath())
 
@@ -58,7 +59,7 @@ func CreateEmbeddedPipPackages2(ep *python.EmbeddedPython, requirementsFile stri
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	err = pipInstall(ep, requirementsFile, pipPlatforms, tmpDir)
 	if err != nil {

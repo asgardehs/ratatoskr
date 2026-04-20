@@ -1,20 +1,20 @@
 package main
 
 import (
-	"fmt"
-	"github.com/kluctl/go-embed-python/pip"
-	"github.com/kluctl/go-embed-python/python"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/asgardehs/ratatoskr/pip"
+	"github.com/asgardehs/ratatoskr/python"
 )
 
 func main() {
 	targetDir := "./pip/internal/data"
 
 	// ensure we have a stable extract path for the python distribution (otherwise shebangs won't be stable)
-	tmpDir := filepath.Join("/tmp", fmt.Sprintf("python-pip-bootstrap"))
+	tmpDir := filepath.Join("/tmp", "python-pip-bootstrap")
 	ep, err := python.NewEmbeddedPythonWithTmpDir(tmpDir, false)
 	if err != nil {
 		panic(err)

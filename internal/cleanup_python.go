@@ -1,10 +1,11 @@
 package internal
 
 import (
-	"github.com/gobwas/glob"
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/gobwas/glob"
 )
 
 var DefaultPythonRemovePatterns = []glob.Glob{
@@ -20,6 +21,9 @@ var DefaultPythonRemovePatterns = []glob.Glob{
 func CleanupPythonDir(dir string, keepPatterns []glob.Glob) error {
 	var removes []string
 	err := filepath.Walk(dir, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		relPath, err := filepath.Rel(dir, path)
 		if err != nil {
 			return err
@@ -43,6 +47,9 @@ func CleanupPythonDir(dir string, keepPatterns []glob.Glob) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	for _, r := range removes {
 		err = os.RemoveAll(r)
@@ -60,7 +67,7 @@ func CleanupPythonDir(dir string, keepPatterns []glob.Glob) error {
 }
 
 func removeEmptyDirs(dir string) error {
-	for true {
+	for {
 		didRemove, err := removeEmptyDirs2(dir)
 		if err != nil {
 			return err

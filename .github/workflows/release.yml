@@ -1,148 +1,94 @@
 name: release
 
 on:
-  push:
-    branches:
-      - 'main'
-  pull_request:
-    branches:
-      - 'main'
-
-env:
-  PYTHON_STANDALONE_VERSIONS: |
-    [
-      "20241219"
-    ]
-  PYTHON_VERSIONS: |
-    [
-      "3.10.16",
-      "3.11.11",
-      "3.12.8",
-      "3.13.1",
-    ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version tag (e.g. v1.0.0). Must follow semver.'
+        required: true
+      python_version:
+        description: 'Python version to bundle (e.g. 3.13.13)'
+        required: true
+        default: '3.13.13'
+      python_standalone_version:
+        description: 'python-build-standalone release date (e.g. 20260414)'
+        required: true
+        default: '20260414'
 
 jobs:
-  build-matrix:
-    runs-on: ubuntu-latest
-    outputs:
-      PYTHON_STANDALONE_VERSIONS: ${{ env.PYTHON_STANDALONE_VERSIONS }}
-      PYTHON_VERSIONS: ${{ env.PYTHON_VERSIONS }}
-    steps:
-      - name: noop
-        run: |
-          echo noop
-
   build-tag:
-    needs:
-      - build-matrix
-    strategy:
-      matrix:
-        pythonStandaloneVersion: ${{ fromJSON(needs.build-matrix.outputs.PYTHON_STANDALONE_VERSIONS) }}
-        pythonVersion: ${{ fromJSON(needs.build-matrix.outputs.PYTHON_VERSIONS) }}
-      fail-fast: false
     runs-on: ubuntu-22.04
     steps:
       - name: clone
         run: |
           # can't use actions/checkout here as transferring the shallow clone fails when using upload-/download-artifact
           git clone https://github.com/$GITHUB_REPOSITORY . --depth=1
-      - name: checkout PR
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          echo fetching pull/${{ github.ref_name }}
-          git fetch origin pull/${{ github.ref_name }}:pr --depth=1
-          git checkout pr
-      - name: checkout branch
-        if: ${{ github.event_name == 'push' }}
-        run: |
-          echo fetching ${{ github.ref_name }}
-          git fetch origin ${{ github.ref_name }} --depth=1
-          git checkout ${{ github.ref_name }}
+          git fetch origin main --depth=1
+          git checkout main
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.19
+          go-version: '1.26'
       - name: build-tag
         run: |
-          git config --global user.email "no@mail.exists"
-          git config --global user.name "go-embed-python releaser"
-          BUILD_NUM=$(./hack/next-build-num.sh ${{ matrix.pythonStandaloneVersion }} ${{ matrix.pythonVersion }})
-          ./hack/build-tag.sh ${{ matrix.pythonStandaloneVersion }} ${{ matrix.pythonVersion }} $BUILD_NUM
-          echo $BUILD_NUM > build-num
+          git config --global user.email "release@asgardehs.github.io"
+          git config --global user.name "ratatoskr releaser"
+          ./hack/build-tag.sh ${{ inputs.version }} ${{ inputs.python_version }} ${{ inputs.python_standalone_version }}
       - name: git gc
-        run: |
-          git gc
+        run: git gc
       - name: rename .git
-        run: |
-          mv .git git-dir
+        run: mv .git git-dir
       - uses: actions/upload-artifact@v4
         with:
-          name: workdir-${{ matrix.pythonStandaloneVersion }} ${{ matrix.pythonVersion }}
-          path: |
-            git-dir
-            build-num
+          name: workdir
+          path: git-dir
 
   tests:
-    needs:
-      - build-matrix
-      - build-tag
+    needs: build-tag
     strategy:
+      fail-fast: false
       matrix:
         os:
           - ubuntu-22.04
           - macos-13
           - windows-2022
-        pythonStandaloneVersion: ${{ fromJSON(needs.build-matrix.outputs.PYTHON_STANDALONE_VERSIONS) }}
-        pythonVersion: ${{ fromJSON(needs.build-matrix.outputs.PYTHON_VERSIONS) }}
-      fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: workdir-${{ matrix.pythonStandaloneVersion }} ${{ matrix.pythonVersion }}
+          name: workdir
       - name: rename .git back
-        run: |
-          mv git-dir .git
+        shell: bash
+        run: mv git-dir .git
       - name: checkout tag
         shell: bash
         run: |
           git reset --hard
-          git checkout v0.0.0-${{ matrix.pythonVersion }}-${{ matrix.pythonStandaloneVersion }}-$(cat build-num)
+          git checkout ${{ inputs.version }}
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.19
+          go-version: '1.26'
       - name: run tests
         shell: bash
-        run: |
-          go test ./... -v
+        run: go test -tags ratatoskr_embed ./... -v
 
   release:
-    needs:
-      - build-matrix
-      - tests
-    strategy:
-      matrix:
-        pythonStandaloneVersion: ${{ fromJSON(needs.build-matrix.outputs.PYTHON_STANDALONE_VERSIONS) }}
-        pythonVersion: ${{ fromJSON(needs.build-matrix.outputs.PYTHON_VERSIONS) }}
-      fail-fast: false
+    needs: tests
     runs-on: ubuntu-22.04
-    if: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
     permissions:
       contents: write
       actions: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: workdir-${{ matrix.pythonStandaloneVersion }} ${{ matrix.pythonVersion }}
+          name: workdir
       - name: rename .git back
-        run: |
-          mv git-dir .git
+        run: mv git-dir .git
       - name: update remote url
         run: |
           git remote set-url origin https://token:$GITHUB_TOKEN@github.com/$GITHUB_REPOSITORY
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: push tag
-        run: |
-          git push origin v0.0.0-${{ matrix.pythonVersion }}-${{ matrix.pythonStandaloneVersion }}-$(cat build-num)
+        run: git push origin ${{ inputs.version }}

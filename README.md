@@ -76,6 +76,24 @@ func main() {
 directory on first use and skips the extraction on subsequent runs if the
 previously extracted copy is intact.
 
+## Persistent Extraction for Desktop Apps
+
+`NewEmbeddedPython` extracts into the system temp directory (`/tmp` on Linux,
+`%TEMP%` on Windows, `/var/folders/...` on macOS). That location may be wiped
+on reboot or cleaned by `systemd-tmpfiles`, forcing re-extraction on every
+launch. For long-lived desktop applications, use
+`NewEmbeddedPythonInCacheDir` instead:
+
+```go
+ep, err := python.NewEmbeddedPythonInCacheDir("myapp")
+```
+
+This places the extracted distribution under the user's OS cache directory —
+`~/.cache/myapp/python-<hash>` on Linux (respecting `$XDG_CACHE_HOME`),
+`~/Library/Caches/myapp/...` on macOS, and `%LOCALAPPDATA%\myapp\...` on
+Windows. The extraction cost is paid once per installed version, and survives
+reboots.
+
 ## Installation
 
 ```bash
@@ -147,7 +165,7 @@ Add a `go:generate` directive in a sibling file (`internal/pylibs/gen.go`):
 ```go
 package pylibs
 
-//go:generate go run ./generate
+//go:generate go run -tags ratatoskr_embed ./generate
 ```
 
 And a `requirements.txt` alongside it:
@@ -156,25 +174,32 @@ And a `requirements.txt` alongside it:
 jinja2==3.1.2
 ```
 
-Running `go generate ./...` populates `internal/pylibs/data` with the
-platform-specific package archives. Load them at runtime via
-`embed_util.NewEmbeddedFiles()` and attach the extracted path to your
-`EmbeddedPython` instance with `AddPythonPath`. This is the same pattern the
-upstream
+Running `go generate -tags ratatoskr_embed ./...` populates
+`internal/pylibs/data` with the platform-specific package archives. The
+`ratatoskr_embed` build tag is required because the generator imports
+Ratatoskr's embedded Python distribution, which is gated behind that tag;
+without it the generator will fail to launch Python.
+
+Load the generated archives at runtime via `embed_util.NewEmbeddedFiles()`
+and attach the extracted path to your `EmbeddedPython` instance with
+`AddPythonPath`. This is the same pattern the upstream
 [go-jinja2](https://github.com/kluctl/go-jinja2) project uses.
 
 ## Releases
 
 Ratatoskr follows [semantic versioning](https://semver.org/) on its Go API.
-The bundled Python version is called out in each release's notes rather than
-encoded in the version string — a given Ratatoskr release advertises "bundles
-Python 3.12.x" in its release description, and upgrading Ratatoskr may
-upgrade Python alongside it. Review release notes before upgrading if your
-application depends on specific Python interpreter behavior.
+Each release bundles a single Python version, called out in the release
+notes — a given Ratatoskr release advertises "bundles Python 3.13.x" in
+its description, and upgrading Ratatoskr may upgrade Python alongside it.
+Review release notes before upgrading if your application depends on
+specific Python interpreter behavior.
 
-Upgrading the embedded Python version is a workflow change, not a code
-change. The supported distributions are controlled by the matrix in
-`.github/workflows/release.yml`.
+Releases are cut manually via the `release` GitHub Actions workflow
+(`workflow_dispatch`). The maintainer supplies the target version tag
+(e.g. `v1.2.0`), the Python version, and the
+[python-build-standalone](https://github.com/astral-sh/python-build-standalone)
+release date. The workflow generates the embedded distribution, runs the
+test suite on Linux, macOS, and Windows, and pushes the resulting tag.
 
 ## Project
 

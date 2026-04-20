@@ -1,6 +1,6 @@
-module github.com/kluctl/go-embed-python
+module github.com/asgardehs/ratatoskr
 
-go 1.19
+go 1.26
 
 require (
 	github.com/gobwas/glob v0.2.3

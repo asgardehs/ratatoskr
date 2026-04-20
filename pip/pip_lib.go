@@ -2,8 +2,9 @@ package pip
 
 import (
 	"fmt"
-	"github.com/kluctl/go-embed-python/embed_util"
-	"github.com/kluctl/go-embed-python/pip/internal/data"
+
+	"github.com/asgardehs/ratatoskr/embed_util"
+	"github.com/asgardehs/ratatoskr/pip/internal/data"
 )
 
 func NewPipLib(name string) (*embed_util.EmbeddedFiles, error) {

@@ -8,11 +8,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 	"os"
 	"path/filepath"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 func CopyForEmbed(out string, dir string) error {
@@ -59,7 +60,8 @@ func doWriteFilesList(srcDir string, outDir string, fl *fileList) error {
 func WriteEmbedGoFile(targetDir string, goOs string, goArch string) error {
 	var embedSrc, fname string
 	if goOs == "" {
-		embedSrc = `
+		embedSrc = `//go:build ratatoskr_embed
+
 package data
 
 import "embed"
@@ -69,7 +71,8 @@ var Data embed.FS
 `
 		fname = "embed.go"
 	} else {
-		embedSrc = fmt.Sprintf(`
+		embedSrc = fmt.Sprintf(`//go:build ratatoskr_embed
+
 package data
 
 import (
@@ -164,15 +167,15 @@ func calcContentHash(dir string, fl *fileList) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			_ = binary.Write(hash, binary.LittleEndian, "symlink")
-			_ = binary.Write(hash, binary.LittleEndian, sl)
+			_, _ = hash.Write([]byte("symlink"))
+			_, _ = hash.Write([]byte(sl))
 		} else if st.Mode().IsDir() {
 			err = os.MkdirAll(path, fle.Mode.Perm())
 			if err != nil {
 				return "", err
 			}
-			_ = binary.Write(hash, binary.LittleEndian, "dir")
-			_ = binary.Write(hash, binary.LittleEndian, fle.Name)
+			_, _ = hash.Write([]byte("dir"))
+			_, _ = hash.Write([]byte(fle.Name))
 		} else if st.Mode().IsRegular() {
 			outPath := filepath.Join(dir, fle.Name)
 			data, err := os.ReadFile(outPath)
@@ -180,8 +183,8 @@ func calcContentHash(dir string, fl *fileList) (string, error) {
 				return "", err
 			}
 
-			_ = binary.Write(hash, binary.LittleEndian, "regular")
-			_ = binary.Write(hash, binary.LittleEndian, fle.Name)
+			_, _ = hash.Write([]byte("regular"))
+			_, _ = hash.Write([]byte(fle.Name))
 			_ = binary.Write(hash, binary.LittleEndian, data)
 		}
 	}

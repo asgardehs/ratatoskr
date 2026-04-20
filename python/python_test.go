@@ -2,10 +2,12 @@ package python
 
 import (
 	"bytes"
-	"github.com/kluctl/go-embed-python/internal"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/asgardehs/ratatoskr/internal"
 )
 
 func TestExternalPython(t *testing.T) {

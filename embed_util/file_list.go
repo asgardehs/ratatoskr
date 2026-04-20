@@ -38,6 +38,9 @@ func buildFileListFromDir(dir string) (*fileList, error) {
 	var fl fileList
 
 	err := filepath.Walk(dir, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		relPath, err := filepath.Rel(dir, path)
 		if err != nil {
 			return err
@@ -82,6 +85,9 @@ func buildFileListFromFs(embedFs fs.FS) (*fileList, error) {
 	var fl fileList
 
 	err := fs.WalkDir(embedFs, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
 		if path == "." || path == "files.json" {
 			return nil
 		}
@@ -120,7 +126,7 @@ func shouldCompress(path string) bool {
 	if err != nil {
 		return false
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	data := make([]byte, 512)
 	n, err := f.Read(data)
 	if err != nil {
@@ -130,14 +136,6 @@ func shouldCompress(path string) bool {
 		return true
 	}
 	return false
-}
-
-func (fl *fileList) toMap() map[string]fileListEntry {
-	m := make(map[string]fileListEntry)
-	for _, e := range fl.Files {
-		m[e.Name] = e
-	}
-	return m
 }
 
 func (fl *fileList) Hash() string {

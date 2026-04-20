@@ -1,8 +1,7 @@
-//go:build ratatoskr_embed
+//go:build !ratatoskr_embed
 
 package data
 
 import "embed"
 
-//go:embed all:*
 var Data embed.FS

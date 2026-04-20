@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"github.com/gofrs/flock"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"github.com/gofrs/flock"
 )
 
 type EmbeddedFiles struct {
@@ -46,6 +47,13 @@ func (e *EmbeddedFiles) GetExtractedPath() string {
 }
 
 func (e *EmbeddedFiles) extract(embedFs fs.FS, withHashInDir bool) error {
+	entries, err := fs.ReadDir(embedFs, ".")
+	if err != nil || len(entries) == 0 {
+		return fmt.Errorf("ratatoskr: embedded data is not available in this build. " +
+			"Depend on a Ratatoskr release tag, or rebuild with `-tags ratatoskr_embed` " +
+			"after running the release generators")
+	}
+
 	fl, err := e.readOrBuildFileList(embedFs)
 	if err != nil {
 		return err
@@ -68,7 +76,7 @@ func (e *EmbeddedFiles) extract(embedFs fs.FS, withHashInDir bool) error {
 	if err != nil {
 		return err
 	}
-	defer lock.Close()
+	defer func() { _ = lock.Close() }()
 
 	err = os.MkdirAll(e.extractedPath, 0o755)
 	if err != nil {
